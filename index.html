@@ -76,7 +76,7 @@ tr.tot td{font-weight:700;border-bottom:none}
 <body>
 <div class="wrap">
   <h1>Simulateur de marge — toiture</h1>
-  <p class="sub">Chantier moyen + comparaison des produits selon conditionnement, prix, dilution et rendement. Tous les montants sont HT.</p>
+  <p class="sub">Chantier moyen + comparaison des produits selon conditionnement, prix, dilution et rendement. Pensé pour un artisan seul : ce qui vous reste par chantier, par heure et par an. Prix des produits saisis HT.</p>
 
   <div class="kpis" id="kpis"></div>
 
@@ -85,15 +85,23 @@ tr.tot td{font-weight:700;border-bottom:none}
     <div class="grid">
       <div><label>Surface (m²)</label><input type="number" data-k="surface" step="1"></div>
       <div><label>Prix de vente (€ HT / m²)</label><input type="number" data-k="prixM2" step="0.5"></div>
-      <div><label>Nb d'ouvriers</label><input type="number" data-k="ouvriers" step="1"></div>
-      <div><label>Heures par ouvrier</label><input type="number" data-k="heures" step="0.5"></div>
-      <div><label>Coût horaire chargé (€)</label><input type="number" data-k="tauxHoraire" step="1"></div>
+      <div><label>Heures passées (trajet + chantier)</label><input type="number" data-k="heures" step="0.5"></div>
       <div><label>Déplacement / carburant (€)</label><input type="number" data-k="deplacement" step="5"></div>
       <div><label>Location matériel (€)</label><input type="number" data-k="location" step="5"></div>
-      <div><label>Autres frais (€)</label><input type="number" data-k="autres" step="5"></div>
-      <div><label>Chantiers par an</label><input type="number" data-k="chantiersAn" step="1"></div>
+      <div><label>Autres frais du chantier (€)</label><input type="number" data-k="autres" step="5"></div>
     </div>
     <div class="hint" id="caHint"></div>
+  </div>
+
+  <div class="card">
+    <h2>Mon activité</h2>
+    <div class="grid">
+      <div><label>Chantiers par an</label><input type="number" data-k="chantiersAn" step="1"></div>
+      <div><label>Frais fixes annuels (€)</label><input type="number" data-k="fixesAn" step="100"></div>
+      <div><label>Cotisations sociales (% du CA)</label><input type="number" data-k="cotisations" step="0.1"></div>
+    </div>
+    <div class="switch" style="margin-top:12px"><input type="checkbox" id="franchiseTVA"><label for="franchiseTVA" style="margin:0;color:var(--ink)">Franchise de TVA (micro-entreprise) : je paie les produits TTC sans récupérer la TVA</label></div>
+    <p class="hint">Frais fixes annuels : assurance décennale, véhicule, publicité, téléphone, comptable, entretien du matériel… Ils sont répartis sur chaque chantier. Cotisations : mettre le taux de votre régime (micro-entreprise, URSSAF…), ou 0 si vous raisonnez avant cotisations.</p>
   </div>
 
   <div class="card">
@@ -120,8 +128,8 @@ tr.tot td{font-weight:700;border-bottom:none}
 
 <script>
 const DEFAULT = {
-  chantier:{surface:120,prixM2:25,ouvriers:2,heures:7,tauxHoraire:32,deplacement:40,location:0,autres:20,chantiersAn:80},
-  auBidon:false,
+  chantier:{surface:120,prixM2:25,heures:9,deplacement:40,location:0,autres:20,chantiersAn:60,fixesAn:6000,cotisations:21.2},
+  auBidon:false,franchiseTVA:true,
   postes:[
     {nom:"Démoussant / anti-mousse",couches:1,choix:"A",
       A:{label:"Concentré",volume:10,prix:200,dilution:9,rendement:5},
@@ -131,7 +139,7 @@ const DEFAULT = {
       B:{label:"Fournisseur B",volume:30,prix:240,dilution:0,rendement:4}},
   ]
 };
-const KEY="simu-marge-toiture-v1";
+const KEY="simu-marge-toiture-solo-v2";
 let S = load();
 
 function load(){
@@ -148,13 +156,14 @@ const v=x=>Number(x)||0;
 function calcOpt(o,poste){
   const surface=v(S.chantier.surface), couches=Math.max(1,v(poste.couches));
   const mixParL=1+v(o.dilution);                    // litres de mélange par litre de produit
-  const prixL=v(o.prix)/v(o.volume);                // € par litre de produit
+  const tva=S.franchiseTVA?1.2:1;                   // en franchise, la TVA payée est un coût
+  const prixL=v(o.prix)*tva/v(o.volume);            // € par litre de produit
   const prixLMix=prixL/mixParL;                     // € par litre de mélange
   const melange=surface*couches/v(o.rendement);     // litres de mélange à appliquer
   const produit=melange/mixParL;                    // litres de produit pur
   const bidons=Math.ceil(produit/v(o.volume)-1e-9);
   const coutConso=produit*prixL;
-  const coutBidon=bidons*v(o.prix);
+  const coutBidon=bidons*v(o.prix)*tva;
   const cout=S.auBidon?coutBidon:coutConso;
   const prixM2=coutConso/surface;
   const chantiersParBidon=v(o.volume)/produit;
@@ -164,27 +173,30 @@ function calcOpt(o,poste){
 function totals(){
   const c=S.chantier;
   const ca=v(c.surface)*v(c.prixM2);
-  const mo=v(c.ouvriers)*v(c.heures)*v(c.tauxHoraire);
   const frais=v(c.deplacement)+v(c.location)+v(c.autres);
+  const fixes=v(c.chantiersAn)?v(c.fixesAn)/v(c.chantiersAn):0;
+  const cotis=ca*v(c.cotisations)/100;
   const prods=S.postes.map(p=>{
     const r=calcOpt(p[p.choix]||p.A,p);
     const other=p.B?calcOpt(p[p.choix==="A"?"B":"A"],p):null;
     return {p,r,other};
   });
   const produits=prods.reduce((s,x)=>s+x.r.cout,0);
-  const marge=ca-mo-frais-produits;
+  const margeBrute=ca-frais-produits;
+  const marge=margeBrute-fixes-cotis;
   // meilleure combinaison possible
   const best=S.postes.reduce((s,p)=>{
     const a=calcOpt(p.A,p).cout, b=p.B?calcOpt(p.B,p).cout:Infinity;
     return s+Math.min(a,b);
   },0);
-  return {ca,mo,frais,produits,marge,prods,best,margeBest:ca-mo-frais-best};
+  return {ca,frais,fixes,cotis,produits,margeBrute,marge,prods,best,margeBest:marge+produits-best};
 }
 
 // ---------- Rendu ----------
 function renderChantier(){
   document.querySelectorAll("[data-k]").forEach(i=>{i.value=S.chantier[i.dataset.k];});
   document.getElementById("auBidon").checked=S.auBidon;
+  document.getElementById("franchiseTVA").checked=S.franchiseTVA;
 }
 
 function optHTML(pi,key,o,poste,isBest){
@@ -255,24 +267,27 @@ function renderTotals(){
   const t=totals(), c=S.chantier;
   const taux=t.ca?t.marge/t.ca*100:0;
   const gain=t.margeBest-t.marge;
+  const h=v(c.heures);
   document.getElementById("kpis").innerHTML=`
     <div class="kpi"><div class="k">Prix du chantier</div><div class="v">${eur(t.ca)}</div></div>
-    <div class="kpi main"><div class="k">Marge par chantier</div><div class="v ${t.marge<0?"neg":""}">${eur(t.marge)}</div></div>
-    <div class="kpi"><div class="k">Taux de marge</div><div class="v ${taux<0?"neg":""}">${num(taux,1)} %</div></div>
-    <div class="kpi"><div class="k">Marge au m²</div><div class="v">${eur(t.marge/v(c.surface),2)}</div></div>
-    <div class="kpi"><div class="k">Marge annuelle (${v(c.chantiersAn)} chantiers)</div><div class="v">${eur(t.marge*v(c.chantiersAn))}</div></div>
+    <div class="kpi main"><div class="k">Ce qui me reste par chantier</div><div class="v ${t.marge<0?"neg":""}">${eur(t.marge)}</div></div>
+    <div class="kpi"><div class="k">Gagné par heure travaillée</div><div class="v ${t.marge<0?"neg":""}">${h?eur(t.marge/h,2):"–"}</div></div>
+    <div class="kpi"><div class="k">Part du prix qui me reste</div><div class="v ${taux<0?"neg":""}">${num(taux,1)} %</div></div>
+    <div class="kpi"><div class="k">Revenu annuel (${v(c.chantiersAn)} chantiers)</div><div class="v">${eur(t.marge*v(c.chantiersAn))}</div><div class="k">soit ${eur(t.marge*v(c.chantiersAn)/12)} / mois</div></div>
     <div class="kpi"><div class="k">Gain possible en changeant de produits</div><div class="v" style="color:${gain>0.5?"var(--good)":"inherit"}">${gain>0.5?"+"+eur(gain*v(c.chantiersAn))+" / an":"Déjà optimal"}</div></div>`;
   document.getElementById("caHint").textContent=
-    `${num(c.surface,0)} m² × ${eur(v(c.prixM2),2)} = ${eur(t.ca)} HT · main d'œuvre ${num(v(c.ouvriers)*v(c.heures),1)} h × ${eur(v(c.tauxHoraire))} = ${eur(t.mo)}`;
+    `${num(c.surface,0)} m² × ${eur(v(c.prixM2),2)} = ${eur(t.ca)}${S.franchiseTVA?" (TVA non applicable)":" HT"}`;
 
-  const rows=[["Main d'œuvre",t.mo,"#6b7fb0"],["Frais (déplacement, location, autres)",t.frais,"#9a8f7a"],
-    ...t.prods.map((x,i)=>[`${x.p.nom} — ${x.p[x.p.choix].label}`,x.r.cout,["#c98a3a","#5a9e8f","#a76aa8","#b85c5c","#6aa84f"][i%5]])];
+  const rows=[["Frais du chantier (déplacement, location, autres)",t.frais,"#9a8f7a"],
+    ...t.prods.map((x,i)=>[`${x.p.nom} — ${x.p[x.p.choix].label}${S.franchiseTVA?" (TTC)":""}`,x.r.cout,["#c98a3a","#5a9e8f","#a76aa8","#b85c5c","#6aa84f"][i%5]]),
+    ["Part des frais fixes annuels",t.fixes,"#6b7fb0"],
+    ["Cotisations sociales",t.cotis,"#8a8f99"]];
   const pct=n=>t.ca?num(n/t.ca*100,1)+" %":"–";
   document.getElementById("detail").innerHTML=`<tr><th>Poste</th><th>Montant</th><th>% du prix</th></tr>
     <tr><td>Prix de vente</td><td>${eur(t.ca,2)}</td><td>100 %</td></tr>
     ${rows.map(r=>`<tr><td>− ${esc(r[0])}</td><td>${eur(r[1],2)}</td><td>${pct(r[1])}</td></tr>`).join("")}
-    <tr class="tot"><td>= Marge</td><td class="${t.marge<0?"neg":""}">${eur(t.marge,2)}</td><td>${pct(t.marge)}</td></tr>`;
-  const all=[...rows,["Marge",Math.max(0,t.marge),"var(--good)"]];
+    <tr class="tot"><td>= Ce qui me reste</td><td class="${t.marge<0?"neg":""}">${eur(t.marge,2)}</td><td>${pct(t.marge)}</td></tr>`;
+  const all=[...rows,["Ce qui me reste",Math.max(0,t.marge),"var(--good)"]];
   const sum=all.reduce((s,r)=>s+Math.max(0,r[1]),0)||1;
   document.getElementById("bar").innerHTML=all.map(r=>`<i style="width:${Math.max(0,r[1])/sum*100}%;background:${r[2]}"></i>`).join("");
   document.getElementById("legend").innerHTML=all.map(r=>`<span><b style="background:${r[2]}"></b>${esc(r[0])}</span>`).join("");
@@ -292,6 +307,7 @@ document.addEventListener("change",e=>{
   const t=e.target;
   if(t.dataset.choix){const [i,k]=t.dataset.choix.split(":");S.postes[i].choix=k;renderOpts(i);refresh();}
   if(t.id==="auBidon"){S.auBidon=t.checked;refresh();}
+  if(t.id==="franchiseTVA"){S.franchiseTVA=t.checked;refresh();}
 });
 document.addEventListener("click",e=>{
   const d=e.target.dataset.del;
