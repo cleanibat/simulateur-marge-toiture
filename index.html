@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Simulateur marge toiture</title>
+<style>
+:root{
+  --bg:#f5f4f0; --card:#ffffff; --ink:#1d1f22; --muted:#6b6f76; --line:#e3e1db;
+  --accent:#b4532a; --accent-soft:#f6e6dd; --good:#1f7a4d; --good-soft:#e1f2e8; --bad:#b42f2f; --bad-soft:#f8e1e1;
+  --input:#faf9f6;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#16171a; --card:#1f2125; --ink:#ecebe7; --muted:#9a9ea6; --line:#33363c;
+    --accent:#e07a4c; --accent-soft:#3a271e; --good:#4fc187; --good-soft:#18362a; --bad:#ef6b6b; --bad-soft:#3d1f1f;
+    --input:#25282d;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 16px 60px}
+h1{font-size:24px;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 20px}
+h2{font-size:16px;margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+input,select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--input);color:var(--ink);font:inherit}
+input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:7px 12px;cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.ghost{border:none;background:none;color:var(--muted);padding:4px 8px}
+button.ghost:hover{color:var(--bad)}
+.poste{border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+.poste-head{display:grid;grid-template-columns:1fr 110px 110px auto;gap:10px;align-items:end;margin-bottom:12px}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.opt{border:2px solid var(--line);border-radius:10px;padding:12px;position:relative}
+.opt.sel{border-color:var(--accent);background:var(--accent-soft)}
+.opt.best::after{content:"Moins cher";position:absolute;top:-10px;right:10px;background:var(--good);color:#fff;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px}
+.opt-top{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-weight:600}
+.opt-top input[type=radio]{width:auto;accent-color:var(--accent)}
+.opt .grid{grid-template-columns:repeat(2,1fr);gap:8px}
+.opt .full{grid-column:1/-1}
+.calc{margin-top:10px;font-size:13px;display:grid;grid-template-columns:1fr auto;gap:2px 10px}
+.calc span:nth-child(even){text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.verdict{margin-top:10px;padding:9px 12px;border-radius:8px;background:var(--good-soft);color:var(--good);font-size:13px;font-weight:600}
+.kpis{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.kpi .k{font-size:12px;color:var(--muted)}
+.kpi .v{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
+.kpi.main{background:var(--accent);border-color:var(--accent);color:#fff}
+.kpi.main .k{color:#fff;opacity:.85}
+.neg{color:var(--bad)!important}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+td,th{padding:7px 6px;border-bottom:1px solid var(--line);text-align:right}
+td:first-child,th:first-child{text-align:left}
+th{font-size:12px;color:var(--muted);font-weight:500}
+tr.tot td{font-weight:700;border-bottom:none}
+.bar{height:10px;border-radius:5px;background:var(--line);overflow:hidden;display:flex;margin:8px 0 4px}
+.bar i{display:block;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted)}
+.legend b{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.hint{font-size:12px;color:var(--muted);margin-top:8px}
+.switch{display:flex;gap:8px;align-items:center;font-size:13px}
+.switch input{width:auto}
+@media (max-width:720px){
+  .opts{grid-template-columns:1fr}
+  .poste-head{grid-template-columns:1fr 1fr}
+  .poste-head .nom{grid-column:1/-1}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Simulateur de marge — toiture</h1>
+  <p class="sub">Chantier moyen + comparaison des produits selon conditionnement, prix, dilution et rendement. Tous les montants sont HT.</p>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card">
+    <h2>Chantier moyen</h2>
+    <div class="grid">
+      <div><label>Surface (m²)</label><input type="number" data-k="surface" step="1"></div>
+      <div><label>Prix de vente (€ HT / m²)</label><input type="number" data-k="prixM2" step="0.5"></div>
+      <div><label>Nb d'ouvriers</label><input type="number" data-k="ouvriers" step="1"></div>
+      <div><label>Heures par ouvrier</label><input type="number" data-k="heures" step="0.5"></div>
+      <div><label>Coût horaire chargé (€)</label><input type="number" data-k="tauxHoraire" step="1"></div>
+      <div><label>Déplacement / carburant (€)</label><input type="number" data-k="deplacement" step="5"></div>
+      <div><label>Location matériel (€)</label><input type="number" data-k="location" step="5"></div>
+      <div><label>Autres frais (€)</label><input type="number" data-k="autres" step="5"></div>
+      <div><label>Chantiers par an</label><input type="number" data-k="chantiersAn" step="1"></div>
+    </div>
+    <div class="hint" id="caHint"></div>
+  </div>
+
+  <div class="card">
+    <h2>Produits <span class="switch"><input type="checkbox" id="auBidon"><label for="auBidon" style="margin:0;color:var(--ink)">Compter les bidons entamés en entier</label></span></h2>
+    <div id="postes"></div>
+    <button id="addPoste">+ Ajouter un produit</button>
+    <p class="hint">Dilution : « 4 » = 1 L de produit pour 4 L d'eau (5 L de mélange). Mettre 0 pour un produit prêt à l'emploi. Le rendement s'entend en m² par litre de mélange appliqué.</p>
+  </div>
+
+  <div class="card">
+    <h2>Détail du chantier</h2>
+    <table id="detail"></table>
+    <div class="bar" id="bar"></div>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <div class="toolbar">
+    <button id="export">Exporter (JSON)</button>
+    <button id="import">Importer</button>
+    <button id="reset">Réinitialiser</button>
+    <input type="file" id="file" accept=".json" hidden>
+  </div>
+</div>
+
+<script>
+const DEFAULT = {
+  chantier:{surface:120,prixM2:25,ouvriers:2,heures:7,tauxHoraire:32,deplacement:40,location:0,autres:20,chantiersAn:80},
+  auBidon:false,
+  postes:[
+    {nom:"Démoussant / anti-mousse",couches:1,choix:"A",
+      A:{label:"Concentré",volume:10,prix:200,dilution:9,rendement:5},
+      B:{label:"Prêt à l'emploi",volume:24,prix:100,dilution:0,rendement:5}},
+    {nom:"Hydrofuge",couches:1,choix:"A",
+      A:{label:"Fournisseur A",volume:20,prix:180,dilution:0,rendement:4},
+      B:{label:"Fournisseur B",volume:30,prix:240,dilution:0,rendement:4}},
+  ]
+};
+const KEY="simu-marge-toiture-v1";
+let S = load();
+
+function load(){
+  try{const s=localStorage.getItem(KEY); if(s) return JSON.parse(s);}catch(e){}
+  return structuredClone(DEFAULT);
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+
+const eur=(n,d=0)=>(isFinite(n)?n:0).toLocaleString("fr-FR",{style:"currency",currency:"EUR",minimumFractionDigits:d,maximumFractionDigits:d});
+const num=(n,d=1)=>(isFinite(n)?n:0).toLocaleString("fr-FR",{maximumFractionDigits:d});
+const v=x=>Number(x)||0;
+
+// Calcul d'une option produit pour un chantier
+function calcOpt(o,poste){
+  const surface=v(S.chantier.surface), couches=Math.max(1,v(poste.couches));
+  const mixParL=1+v(o.dilution);                    // litres de mélange par litre de produit
+  const prixL=v(o.prix)/v(o.volume);                // € par litre de produit
+  const prixLMix=prixL/mixParL;                     // € par litre de mélange
+  const melange=surface*couches/v(o.rendement);     // litres de mélange à appliquer
+  const produit=melange/mixParL;                    // litres de produit pur
+  const bidons=Math.ceil(produit/v(o.volume)-1e-9);
+  const coutConso=produit*prixL;
+  const coutBidon=bidons*v(o.prix);
+  const cout=S.auBidon?coutBidon:coutConso;
+  const prixM2=coutConso/surface;
+  const chantiersParBidon=v(o.volume)/produit;
+  return {prixL,prixLMix,melange,produit,bidons,coutConso,coutBidon,cout,prixM2,chantiersParBidon};
+}
+
+function totals(){
+  const c=S.chantier;
+  const ca=v(c.surface)*v(c.prixM2);
+  const mo=v(c.ouvriers)*v(c.heures)*v(c.tauxHoraire);
+  const frais=v(c.deplacement)+v(c.location)+v(c.autres);
+  const prods=S.postes.map(p=>{
+    const r=calcOpt(p[p.choix]||p.A,p);
+    const other=p.B?calcOpt(p[p.choix==="A"?"B":"A"],p):null;
+    return {p,r,other};
+  });
+  const produits=prods.reduce((s,x)=>s+x.r.cout,0);
+  const marge=ca-mo-frais-produits;
+  // meilleure combinaison possible
+  const best=S.postes.reduce((s,p)=>{
+    const a=calcOpt(p.A,p).cout, b=p.B?calcOpt(p.B,p).cout:Infinity;
+    return s+Math.min(a,b);
+  },0);
+  return {ca,mo,frais,produits,marge,prods,best,margeBest:ca-mo-frais-best};
+}
+
+// ---------- Rendu ----------
+function renderChantier(){
+  document.querySelectorAll("[data-k]").forEach(i=>{i.value=S.chantier[i.dataset.k];});
+  document.getElementById("auBidon").checked=S.auBidon;
+}
+
+function optHTML(pi,key,o,poste,isBest){
+  const r=calcOpt(o,poste);
+  const sel=poste.choix===key;
+  return `<div class="opt ${sel?"sel":""} ${isBest?"best":""}">
+    <div class="opt-top"><input type="radio" name="choix${pi}" ${sel?"checked":""} data-choix="${pi}:${key}" aria-label="Utiliser l'option ${key}">
+      <input value="${esc(o.label)}" data-o="${pi}:${key}:label" style="font-weight:600"></div>
+    <div class="grid">
+      <div><label>Conditionnement (L)</label><input type="number" step="0.5" value="${o.volume}" data-o="${pi}:${key}:volume"></div>
+      <div><label>Prix du bidon (€ HT)</label><input type="number" step="1" value="${o.prix}" data-o="${pi}:${key}:prix"></div>
+      <div><label>Dilution (L d'eau / L)</label><input type="number" step="0.5" value="${o.dilution}" data-o="${pi}:${key}:dilution"></div>
+      <div><label>Rendement (m² / L mélange)</label><input type="number" step="0.5" value="${o.rendement}" data-o="${pi}:${key}:rendement"></div>
+    </div>
+    <div class="calc" data-calc="${pi}:${key}">${calcHTML(r)}</div>
+  </div>`;
+}
+function calcHTML(r){
+  return `<span>Prix au litre (pur)</span><span>${eur(r.prixL,2)}</span>
+    <span>Prix au litre de mélange</span><span>${eur(r.prixLMix,2)}</span>
+    <span>Produit pur / chantier</span><span>${num(r.produit)} L</span>
+    <span>Bidons à ouvrir</span><span>${r.bidons}</span>
+    <span>Chantiers par bidon</span><span>${num(r.chantiersParBidon)}</span>
+    <span>Coût au m²</span><span>${eur(r.prixM2,2)}</span>
+    <span>Coût chantier (consommé)</span><span>${eur(r.coutConso,2)}</span>
+    <span>Coût chantier (bidons entiers)</span><span>${eur(r.coutBidon,2)}</span>`;
+}
+function esc(s){return String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+function renderPostes(){
+  const el=document.getElementById("postes");
+  el.innerHTML=S.postes.map((p,i)=>`<div class="poste">
+    <div class="poste-head">
+      <div class="nom"><label>Produit / étape</label><input value="${esc(p.nom)}" data-p="${i}:nom"></div>
+      <div><label>Nb de couches</label><input type="number" step="1" min="1" value="${p.couches}" data-p="${i}:couches"></div>
+      <div></div>
+      <button class="ghost" data-del="${i}" title="Supprimer">Supprimer</button>
+    </div>
+    <div class="opts" data-opts="${i}"></div>
+    <div data-verdict="${i}"></div>
+  </div>`).join("");
+  S.postes.forEach((p,i)=>renderOpts(i));
+}
+function renderOpts(i){
+  const p=S.postes[i];
+  const a=calcOpt(p.A,p).cout, b=calcOpt(p.B,p).cout;
+  document.querySelector(`[data-opts="${i}"]`).innerHTML=
+    optHTML(i,"A",p.A,p,a<b-0.005)+optHTML(i,"B",p.B,p,b<a-0.005);
+}
+function updateCalcs(){
+  S.postes.forEach((p,i)=>{
+    const a=calcOpt(p.A,p), b=calcOpt(p.B,p);
+    document.querySelector(`[data-calc="${i}:A"]`).innerHTML=calcHTML(a);
+    document.querySelector(`[data-calc="${i}:B"]`).innerHTML=calcHTML(b);
+    const oa=document.querySelector(`[data-opts="${i}"]`).children;
+    oa[0].classList.toggle("best",a.cout<b.cout-0.005);
+    oa[1].classList.toggle("best",b.cout<a.cout-0.005);
+    const diff=Math.abs(a.cout-b.cout), an=diff*v(S.chantier.chantiersAn);
+    const cheap=a.cout<=b.cout?p.A.label:p.B.label;
+    const pct=Math.abs(a.prixLMix-b.prixLMix)/Math.max(a.prixLMix,b.prixLMix)*100;
+    document.querySelector(`[data-verdict="${i}"]`).innerHTML= diff<0.005
+      ? `<div class="verdict" style="background:var(--input);color:var(--muted)">Les deux options reviennent au même prix.</div>`
+      : `<div class="verdict">${esc(cheap)} est moins cher de ${eur(diff,2)} par chantier (${num(pct,0)} % au litre de mélange), soit ${eur(an)} sur ${v(S.chantier.chantiersAn)} chantiers / an.</div>`;
+  });
+}
+
+function renderTotals(){
+  const t=totals(), c=S.chantier;
+  const taux=t.ca?t.marge/t.ca*100:0;
+  const gain=t.margeBest-t.marge;
+  document.getElementById("kpis").innerHTML=`
+    <div class="kpi"><div class="k">Prix du chantier</div><div class="v">${eur(t.ca)}</div></div>
+    <div class="kpi main"><div class="k">Marge par chantier</div><div class="v ${t.marge<0?"neg":""}">${eur(t.marge)}</div></div>
+    <div class="kpi"><div class="k">Taux de marge</div><div class="v ${taux<0?"neg":""}">${num(taux,1)} %</div></div>
+    <div class="kpi"><div class="k">Marge au m²</div><div class="v">${eur(t.marge/v(c.surface),2)}</div></div>
+    <div class="kpi"><div class="k">Marge annuelle (${v(c.chantiersAn)} chantiers)</div><div class="v">${eur(t.marge*v(c.chantiersAn))}</div></div>
+    <div class="kpi"><div class="k">Gain possible en changeant de produits</div><div class="v" style="color:${gain>0.5?"var(--good)":"inherit"}">${gain>0.5?"+"+eur(gain*v(c.chantiersAn))+" / an":"Déjà optimal"}</div></div>`;
+  document.getElementById("caHint").textContent=
+    `${num(c.surface,0)} m² × ${eur(v(c.prixM2),2)} = ${eur(t.ca)} HT · main d'œuvre ${num(v(c.ouvriers)*v(c.heures),1)} h × ${eur(v(c.tauxHoraire))} = ${eur(t.mo)}`;
+
+  const rows=[["Main d'œuvre",t.mo,"#6b7fb0"],["Frais (déplacement, location, autres)",t.frais,"#9a8f7a"],
+    ...t.prods.map((x,i)=>[`${x.p.nom} — ${x.p[x.p.choix].label}`,x.r.cout,["#c98a3a","#5a9e8f","#a76aa8","#b85c5c","#6aa84f"][i%5]])];
+  const pct=n=>t.ca?num(n/t.ca*100,1)+" %":"–";
+  document.getElementById("detail").innerHTML=`<tr><th>Poste</th><th>Montant</th><th>% du prix</th></tr>
+    <tr><td>Prix de vente</td><td>${eur(t.ca,2)}</td><td>100 %</td></tr>
+    ${rows.map(r=>`<tr><td>− ${esc(r[0])}</td><td>${eur(r[1],2)}</td><td>${pct(r[1])}</td></tr>`).join("")}
+    <tr class="tot"><td>= Marge</td><td class="${t.marge<0?"neg":""}">${eur(t.marge,2)}</td><td>${pct(t.marge)}</td></tr>`;
+  const all=[...rows,["Marge",Math.max(0,t.marge),"var(--good)"]];
+  const sum=all.reduce((s,r)=>s+Math.max(0,r[1]),0)||1;
+  document.getElementById("bar").innerHTML=all.map(r=>`<i style="width:${Math.max(0,r[1])/sum*100}%;background:${r[2]}"></i>`).join("");
+  document.getElementById("legend").innerHTML=all.map(r=>`<span><b style="background:${r[2]}"></b>${esc(r[0])}</span>`).join("");
+}
+
+function refresh(){updateCalcs();renderTotals();save();}
+function full(){renderChantier();renderPostes();refresh();}
+
+// ---------- Événements ----------
+document.addEventListener("input",e=>{
+  const t=e.target;
+  if(t.dataset.k){S.chantier[t.dataset.k]=t.value===""?"":Number(t.value);refresh();}
+  else if(t.dataset.p){const [i,f]=t.dataset.p.split(":");S.postes[i][f]=f==="nom"?t.value:Number(t.value);refresh();}
+  else if(t.dataset.o){const [i,k,f]=t.dataset.o.split(":");S.postes[i][k][f]=f==="label"?t.value:Number(t.value);refresh();}
+});
+document.addEventListener("change",e=>{
+  const t=e.target;
+  if(t.dataset.choix){const [i,k]=t.dataset.choix.split(":");S.postes[i].choix=k;renderOpts(i);refresh();}
+  if(t.id==="auBidon"){S.auBidon=t.checked;refresh();}
+});
+document.addEventListener("click",e=>{
+  const d=e.target.dataset.del;
+  if(d!==undefined){S.postes.splice(Number(d),1);full();}
+});
+document.getElementById("addPoste").onclick=()=>{
+  S.postes.push({nom:"Nouveau produit",couches:1,choix:"A",
+    A:{label:"Option A",volume:20,prix:100,dilution:0,rendement:5},
+    B:{label:"Option B",volume:20,prix:100,dilution:0,rendement:5}});
+  full();
+};
+document.getElementById("reset").onclick=()=>{if(confirm("Revenir aux valeurs par défaut ?")){S=structuredClone(DEFAULT);full();}};
+document.getElementById("export").onclick=()=>{
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,2)],{type:"application/json"}));
+  a.download="simulation-marge-toiture.json";a.click();
+};
+document.getElementById("import").onclick=()=>document.getElementById("file").click();
+document.getElementById("file").onchange=async e=>{
+  try{S=JSON.parse(await e.target.files[0].text());full();}catch(err){alert("Fichier invalide");}
+};
+full();
+</script>
+</body>
+</html>
